@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/DumpSQL/DumpSQL.csproj" />
+    <Project Path="src/RestoreSQL/RestoreSQL.csproj" />
   </Folder>
 </Solution>

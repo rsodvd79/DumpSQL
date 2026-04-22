@@ -160,6 +160,49 @@ ON DUPLICATE KEY UPDATE `total` = VALUES(`total`);
 
 ---
 
+## RestoreSQL
+
+**RestoreSQL** è il complemento di DumpSQL: legge i file `.sql` generati e li applica su un database target tramite upsert.
+
+### Utilizzo
+
+```bash
+# File di configurazione predefinito (appsettings.json)
+dotnet run --project src/RestoreSQL/RestoreSQL.csproj
+
+# File di configurazione alternativo
+dotnet run --project src/RestoreSQL/RestoreSQL.csproj -- --config appsettings-mysql.json
+
+# Build + eseguibile
+dotnet publish src/RestoreSQL/RestoreSQL.csproj -c Release -o ./publish
+./publish/RestoreSQL.exe --config appsettings-mysql.json
+```
+
+### Configurazione
+
+```json
+{
+  "DatabaseType": "mysql",
+  "ConnectionString": "Server=localhost;Port=3306;Database=biemmedb;User ID=dvd;Password=dvd;",
+  "InputDirectory": "input"
+}
+```
+
+| Parametro | Descrizione |
+|-----------|-------------|
+| `DatabaseType` | `mssql` o `mysql` |
+| `ConnectionString` | Stringa di connessione al database target |
+| `InputDirectory` | Cartella contenente i file `.sql` da applicare (default: `input`) |
+
+### Comportamento
+
+- Esegue tutti i file `.sql` presenti in `InputDirectory`, in ordine alfabetico
+- Ogni file viene applicato in una **transazione**: se un'istruzione fallisce, il file viene annullato (rollback) e si continua con il successivo
+- I file generati da DumpSQL sono già in sintassi upsert (MERGE / INSERT ON DUPLICATE KEY UPDATE)
+- In caso di errori, il processo esce con codice `2` (utile per script CI/CD)
+
+---
+
 ## Log
 
 I log vengono scritti su console e nella cartella `log/` con un file per giorno:
@@ -171,7 +214,7 @@ log/
 
 All'avvio, i file di log più vecchi di **30 giorni** vengono eliminati automaticamente.
 
-> **Modalità Debug**: all'avvio in configurazione `Debug`, le cartelle `log/` e `output/` vengono svuotate automaticamente per facilitare i test.
+> **Modalità Debug**: all'avvio in configurazione `Debug`, la cartella `log/` viene svuotata automaticamente. Per DumpSQL viene svuotata anche `output/`.
 
 ---
 
@@ -180,21 +223,29 @@ All'avvio, i file di log più vecchi di **30 giorni** vengono eliminati automati
 ```
 DumpSQL/
 ├── src/
-│   └── DumpSQL/
+│   ├── DumpSQL/
+│   │   ├── Program.cs
+│   │   ├── appsettings.json              # configurazione MSSQL (THIP, 14 tabelle)
+│   │   ├── appsettings-mysql.json        # configurazione MySQL (matrixintranet, 9 tabelle)
+│   │   ├── appsettings-biemmedb.json     # configurazione MySQL (biemmedb MES, 83 tabelle)
+│   │   ├── Models/
+│   │   │   ├── AppSettings.cs
+│   │   │   └── TableConfig.cs
+│   │   └── Services/
+│   │       ├── IDatabaseService.cs
+│   │       ├── MssqlDatabaseService.cs
+│   │       ├── MysqlDatabaseService.cs
+│   │       ├── SqlFileGenerator.cs
+│   │       ├── SqlQuoting.cs
+│   │       └── LogCleanupService.cs
+│   └── RestoreSQL/
 │       ├── Program.cs
-│       ├── appsettings.json              # configurazione MSSQL (THIP, 14 tabelle)
-│       ├── appsettings-mysql.json        # configurazione MySQL (matrixintranet, 9 tabelle)
-│       ├── appsettings-biemmedb.json     # configurazione MySQL (biemmedb MES, 83 tabelle)
+│       ├── appsettings.json              # configurazione MSSQL target
+│       ├── appsettings-mysql.json        # configurazione MySQL target (biemmedb)
 │       ├── Models/
-│       │   ├── AppSettings.cs
-│       │   └── TableConfig.cs
+│       │   └── AppSettings.cs
 │       └── Services/
-│           ├── IDatabaseService.cs
-│           ├── MssqlDatabaseService.cs
-│           ├── MysqlDatabaseService.cs
-│           ├── SqlFileGenerator.cs
-│           ├── SqlQuoting.cs
-│           └── LogCleanupService.cs
+│           └── RestoreService.cs
 └── DumpSQL.slnx
 ```
 

@@ -151,8 +151,8 @@ public class SqlFileGenerator
             bool b => b ? "1" : "0",
             byte or short or int or long or float or double or decimal
                 => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? "NULL",
-            DateTime dt => $"'{dt:yyyy-MM-dd HH:mm:ss}'",
-            DateTimeOffset dto => $"'{dto:yyyy-MM-dd HH:mm:ss}'",
+            DateTime dt => $"'{dt:yyyy-MM-ddTHH:mm:ss}'",
+            DateTimeOffset dto => $"'{dto:yyyy-MM-ddTHH:mm:ss}'",
             _ => $"'{value.ToString()!.Replace("'", "''")}'"
         };
     }
