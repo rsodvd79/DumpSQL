@@ -1,0 +1,213 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write   # necessario per creare release e tag
+
+# Versione condivisa tra tutti i job: YYYY.MM.DD.{run_number}
+# run_number garantisce unicità anche in caso di push ravvicinati
+env:
+  DOTNET_VERSION: '8.0.x'
+  BUILD_CONFIG: Release
+
+jobs:
+  # ── Job 1: calcola la versione e la condivide agli altri job ─────────────────
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.VERSION }}
+      tag:     ${{ steps.ver.outputs.TAG }}
+    steps:
+      - name: Calcola versione
+        id: ver
+        run: |
+          VERSION=$(date -u '+%Y.%m.%d').${{ github.run_number }}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=v$VERSION"    >> $GITHUB_OUTPUT
+          echo "Versione: $VERSION"
+
+  # ── Job 2: build Windows (su windows-latest per icona .exe corretta) ─────────
+  build-windows:
+    needs: version
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Pubblica DumpSQL win-x64
+        run: |
+          dotnet publish src/DumpSQL/DumpSQL.csproj `
+            -c ${{ env.BUILD_CONFIG }} -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:AssemblyVersion=${{ env.VERSION }} `
+            -p:FileVersion=${{ env.VERSION }} `
+            -o publish/dumpsql
+
+      - name: Pubblica RestoreSQL win-x64
+        run: |
+          dotnet publish src/RestoreSQL/RestoreSQL.csproj `
+            -c ${{ env.BUILD_CONFIG }} -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:AssemblyVersion=${{ env.VERSION }} `
+            -p:FileVersion=${{ env.VERSION }} `
+            -o publish/restoresql
+
+      - name: Crea zip win-x64
+        shell: pwsh
+        run: |
+          $v = "${{ env.VERSION }}"
+          $rel = "release/win-x64"
+          New-Item -ItemType Directory -Force "$rel/DumpSQL"    | Out-Null
+          New-Item -ItemType Directory -Force "$rel/RestoreSQL" | Out-Null
+
+          # Tutto il publish output (include SNI.dll e altre dipendenze native)
+          Copy-Item -Recurse "publish/dumpsql/*"    "$rel/DumpSQL/"
+          Copy-Item -Recurse "publish/restoresql/*" "$rel/RestoreSQL/"
+
+          # File di configurazione di esempio
+          Copy-Item "src/DumpSQL/appsettings.json"          "$rel/DumpSQL/"
+          Copy-Item "src/DumpSQL/appsettings-mysql.json"    "$rel/DumpSQL/"
+          Copy-Item "src/DumpSQL/appsettings-biemmedb.json" "$rel/DumpSQL/"
+          Copy-Item "src/RestoreSQL/appsettings.json"       "$rel/RestoreSQL/"
+          Copy-Item "src/RestoreSQL/appsettings-mysql.json" "$rel/RestoreSQL/"
+
+          # Rimuovi .pdb (simboli di debug — non necessari in distribuzione)
+          Get-ChildItem "$rel" -Recurse -Filter "*.pdb" | Remove-Item -Force
+
+          Compress-Archive -Path "$rel" -DestinationPath "DumpSQL-Suite-$v-win-x64.zip"
+          Write-Host "Creato: DumpSQL-Suite-$v-win-x64.zip"
+
+      - name: Upload artefatto win-x64
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-x64
+          path: DumpSQL-Suite-${{ env.VERSION }}-win-x64.zip
+          retention-days: 1
+
+  # ── Job 3: build Linux ───────────────────────────────────────────────────────
+  build-linux:
+    needs: version
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Pubblica DumpSQL linux-x64
+        run: |
+          dotnet publish src/DumpSQL/DumpSQL.csproj \
+            -c ${{ env.BUILD_CONFIG }} -r linux-x64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:AssemblyVersion=${{ env.VERSION }} \
+            -p:FileVersion=${{ env.VERSION }} \
+            -o publish/dumpsql
+
+      - name: Pubblica RestoreSQL linux-x64
+        run: |
+          dotnet publish src/RestoreSQL/RestoreSQL.csproj \
+            -c ${{ env.BUILD_CONFIG }} -r linux-x64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:AssemblyVersion=${{ env.VERSION }} \
+            -p:FileVersion=${{ env.VERSION }} \
+            -o publish/restoresql
+
+      - name: Crea zip linux-x64
+        run: |
+          V="${{ env.VERSION }}"
+          REL="release/linux-x64"
+          mkdir -p "$REL/DumpSQL" "$REL/RestoreSQL"
+
+          # Tutto il publish output
+          cp -r publish/dumpsql/*    "$REL/DumpSQL/"
+          cp -r publish/restoresql/* "$REL/RestoreSQL/"
+
+          # File di configurazione di esempio
+          cp src/DumpSQL/appsettings.json          "$REL/DumpSQL/"
+          cp src/DumpSQL/appsettings-mysql.json    "$REL/DumpSQL/"
+          cp src/DumpSQL/appsettings-biemmedb.json "$REL/DumpSQL/"
+          cp src/RestoreSQL/appsettings.json       "$REL/RestoreSQL/"
+          cp src/RestoreSQL/appsettings-mysql.json "$REL/RestoreSQL/"
+
+          # Rimuovi .pdb
+          find "$REL" -name "*.pdb" -delete
+
+          # Assicura permessi di esecuzione
+          chmod +x "$REL/DumpSQL/DumpSQL"
+          chmod +x "$REL/RestoreSQL/RestoreSQL"
+
+          zip -r "DumpSQL-Suite-$V-linux-x64.zip" "$REL"
+          echo "Creato: DumpSQL-Suite-$V-linux-x64.zip"
+
+      - name: Upload artefatto linux-x64
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: DumpSQL-Suite-${{ env.VERSION }}-linux-x64.zip
+          retention-days: 1
+
+  # ── Job 4: crea la GitHub Release con entrambi gli zip ───────────────────────
+  release:
+    needs: [ version, build-windows, build-linux ]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      TAG:     ${{ needs.version.outputs.tag }}
+    steps:
+      - name: Scarica artefatti
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Crea GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: "DumpSQL Suite ${{ env.VERSION }}"
+          body: |
+            ## DumpSQL Suite ${{ env.VERSION }}
+
+            Build automatico — commit [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+
+            ### Download
+            | Pacchetto | Piattaforma |
+            |-----------|-------------|
+            | `DumpSQL-Suite-${{ env.VERSION }}-win-x64.zip` | Windows 64-bit |
+            | `DumpSQL-Suite-${{ env.VERSION }}-linux-x64.zip` | Linux 64-bit |
+
+            ### Contenuto di ogni pacchetto
+            ```
+            DumpSQL/
+              DumpSQL.exe / DumpSQL   ← eseguibile principale
+              appsettings.json        ← configurazione MSSQL (da personalizzare)
+              appsettings-mysql.json  ← configurazione MySQL (da personalizzare)
+              appsettings-biemmedb.json
+            RestoreSQL/
+              RestoreSQL.exe / RestoreSQL
+              appsettings.json
+              appsettings-mysql.json
+            ```
+
+            ### Configurazione rapida
+            Editare `appsettings.json` nella cartella del tool con la propria
+            stringa di connessione prima dell'uso.
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/win-x64/DumpSQL-Suite-${{ env.VERSION }}-win-x64.zip
+            artifacts/linux-x64/DumpSQL-Suite-${{ env.VERSION }}-linux-x64.zip

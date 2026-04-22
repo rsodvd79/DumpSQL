@@ -83,6 +83,21 @@ try
         return;
     }
 
+    // Ordina i file secondo TableOrder (rispetta le FK), poi alfabetico per i rimanenti
+    if (settings.TableOrder.Count > 0)
+    {
+        sqlFiles = sqlFiles
+            .OrderBy(f =>
+            {
+                var tableName = ExtractTableName(f);
+                var idx = settings.TableOrder.FindIndex(
+                    t => t.Equals(tableName, StringComparison.OrdinalIgnoreCase));
+                return idx >= 0 ? idx : int.MaxValue;
+            })
+            .ThenBy(f => f)
+            .ToList();
+    }
+
     Log.Information("Database: {Type} | File: {Count} | Input: {Dir}",
         settings.DatabaseType, sqlFiles.Count, settings.InputDirectory);
 
@@ -92,11 +107,6 @@ try
     int okFiles  = 0;
     int errFiles = 0;
 
-    Log.Information("Disabilitazione foreign key constraints...");
-    await restore.DisableConstraintsAsync(cts.Token);
-
-    try
-    {
     foreach (var file in sqlFiles)
     {
         if (cts.Token.IsCancellationRequested) break;
@@ -133,13 +143,6 @@ try
             Log.Error(ex, "Errore imprevisto su {File}", fileName);
             errFiles++;
         }
-    }
-    }
-    finally
-    {
-        Log.Information("Riabilitazione foreign key constraints...");
-        try { await restore.EnableConstraintsAsync(); }
-        catch (Exception ex) { Log.Warning(ex, "Impossibile riabilitare FK constraints"); }
     }
 
     Log.Information("RestoreSQL completato in {Elapsed:F1}s. OK: {Ok} | Errori: {Err}",
@@ -179,4 +182,12 @@ static void CleanupOldLogs(string dir, int days)
     foreach (var f in Directory.GetFiles(dir, "*.log"))
         if (File.GetLastWriteTime(f) < cutoff)
             try { File.Delete(f); } catch { /* ignora */ }
+}
+
+// Estrae il nome tabella dal nome file: "THIP_ARTICOLI_20260422.sql" → "THIP_ARTICOLI"
+static string ExtractTableName(string filePath)
+{
+    var name  = Path.GetFileNameWithoutExtension(filePath);
+    var match = System.Text.RegularExpressions.Regex.Match(name, @"^(.+)_\d{8}$");
+    return match.Success ? match.Groups[1].Value : name;
 }

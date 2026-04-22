@@ -182,9 +182,16 @@ dotnet publish src/RestoreSQL/RestoreSQL.csproj -c Release -o ./publish
 
 ```json
 {
-  "DatabaseType": "mysql",
-  "ConnectionString": "Server=localhost;Port=3306;Database=biemmedb;User ID=dvd;Password=dvd;",
-  "InputDirectory": "input"
+  "DatabaseType": "mssql",
+  "ConnectionString": "Server=localhost;Database=MyDb;User Id=sa;Password=secret;TrustServerCertificate=True;",
+  "InputDirectory": "input",
+  "TableOrder": [
+    "THIP_REPARTI",
+    "THIP_FORNITORI",
+    "THIP_ARTICOLI",
+    "THIP_ART_VERSIONI",
+    "THIP_ARTICOLI_CLI"
+  ]
 }
 ```
 
@@ -193,10 +200,11 @@ dotnet publish src/RestoreSQL/RestoreSQL.csproj -c Release -o ./publish
 | `DatabaseType` | `mssql` o `mysql` |
 | `ConnectionString` | Stringa di connessione al database target |
 | `InputDirectory` | Cartella contenente i file `.sql` da applicare (default: `input`) |
+| `TableOrder` | **Ordine di elaborazione** delle tabelle (array di nomi senza suffisso data). I file il cui nome inizia con una voce dell'elenco vengono elaborati nell'ordine specificato; quelli non presenti vengono elaborati dopo, in ordine alfabetico. Usato per rispettare le dipendenze di Foreign Key. |
 
 ### Comportamento
 
-- Esegue tutti i file `.sql` presenti in `InputDirectory`, in ordine alfabetico
+- Esegue tutti i file `.sql` presenti in `InputDirectory` nell'ordine definito da `TableOrder`, poi i restanti in ordine alfabetico
 - Ogni file viene applicato in una **transazione**: se un'istruzione fallisce, il file viene annullato (rollback) e si continua con il successivo
 - I file generati da DumpSQL sono già in sintassi upsert (MERGE / INSERT ON DUPLICATE KEY UPDATE)
 - In caso di errori, il processo esce con codice `2` (utile per script CI/CD)

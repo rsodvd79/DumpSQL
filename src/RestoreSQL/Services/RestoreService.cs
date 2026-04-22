@@ -7,43 +7,6 @@ namespace RestoreSQL.Services;
 
 public class RestoreService(string connectionString, string databaseType)
 {
-    // ── Constraint management ─────────────────────────────────────────────────
-    public async Task DisableConstraintsAsync(CancellationToken ct = default)
-    {
-        switch (databaseType.ToLowerInvariant())
-        {
-            case "mssql":
-                await using (var conn = new SqlConnection(connectionString))
-                {
-                    await conn.OpenAsync(ct);
-                    await using var cmd = new SqlCommand(
-                        "EXEC sp_MSforeachtable 'ALTER TABLE ? NOCHECK CONSTRAINT ALL'", conn)
-                    { CommandTimeout = 120 };
-                    await cmd.ExecuteNonQueryAsync(ct);
-                }
-                break;
-            // MySQL: gestito per sessione dentro ExecuteMySqlAsync
-        }
-    }
-
-    public async Task EnableConstraintsAsync(CancellationToken ct = default)
-    {
-        switch (databaseType.ToLowerInvariant())
-        {
-            case "mssql":
-                await using (var conn = new SqlConnection(connectionString))
-                {
-                    await conn.OpenAsync(ct);
-                    await using var cmd = new SqlCommand(
-                        "EXEC sp_MSforeachtable 'ALTER TABLE ? WITH CHECK CHECK CONSTRAINT ALL'", conn)
-                    { CommandTimeout = 300 };
-                    await cmd.ExecuteNonQueryAsync(ct);
-                }
-                break;
-            // MySQL: gestito per sessione dentro ExecuteMySqlAsync
-        }
-    }
-
     public async Task<(int statementsOk, int statementsSkipped, string? error)> ExecuteFileAsync(
         string filePath, CancellationToken ct)
     {
@@ -107,9 +70,6 @@ public class RestoreService(string connectionString, string databaseType)
     {
         await using var conn = new MySqlConnection(connectionString);
         await conn.OpenAsync(ct);
-        // Disabilita FK check per questa sessione (ogni file ha la propria connessione)
-        await using (var fkCmd = new MySqlCommand("SET FOREIGN_KEY_CHECKS = 0;", conn))
-            await fkCmd.ExecuteNonQueryAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
         int ok = 0;
         try
