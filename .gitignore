@@ -1,0 +1,7 @@
+output/
+log/
+publish/
+*.user
+.vs/
+bin/
+obj/
