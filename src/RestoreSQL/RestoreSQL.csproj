@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <AssemblyVersion>2026.4.22.1</AssemblyVersion>
     <FileVersion>2026.4.22.1</FileVersion>
-    <ApplicationIcon>..\..\assets\icon.ico</ApplicationIcon>
+    <ApplicationIcon>..\..\assets\restore\icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

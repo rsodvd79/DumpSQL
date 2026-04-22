@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background: dark rounded square -->
+  <rect width="64" height="64" rx="12" fill="#0d1117"/>
+
+  <!-- Database cylinder — body -->
+  <rect x="14" y="18" width="36" height="22" fill="#0c3320"/>
+
+  <!-- Database — top ellipse (bright green) -->
+  <ellipse cx="32" cy="18" rx="18" ry="5.5" fill="#22c55e"/>
+  <!-- Highlight on top ellipse -->
+  <ellipse cx="32" cy="17" rx="12" ry="3" fill="#86efac" opacity="0.35"/>
+
+  <!-- Database — middle ring -->
+  <ellipse cx="32" cy="29" rx="18" ry="5.5" fill="none"
+           stroke="#22c55e" stroke-width="1.2" opacity="0.45"/>
+
+  <!-- Database — bottom ellipse -->
+  <ellipse cx="32" cy="40" rx="18" ry="5.5" fill="#14532d"/>
+
+  <!-- Restore arrow — shaft (pointing UP, below the DB) -->
+  <line x1="32" y1="58" x2="32" y2="47"
+        stroke="#00e5b0" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Restore arrow — head (pointing UP) -->
+  <polyline points="23,53 32,44 41,53"
+            fill="none" stroke="#00e5b0"
+            stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Subtle glow ring around arrowhead -->
+  <polyline points="23,53 32,44 41,53"
+            fill="none" stroke="#00e5b0"
+            stroke-width="7" stroke-linecap="round" stroke-linejoin="round"
+            opacity="0.12"/>
+</svg>
