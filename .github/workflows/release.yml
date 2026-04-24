@@ -94,10 +94,10 @@ jobs:
           path: DumpSQL-Suite-${{ env.VERSION }}-win-x64.zip
           retention-days: 1
 
-  # ── Job 3: build Linux ───────────────────────────────────────────────────────
-  build-linux:
+  # ── Job 3: build Windows ARM64 ───────────────────────────────────────────────
+  build-windows-arm64:
     needs: version
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
@@ -107,30 +107,92 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Pubblica DumpSQL linux-x64
+      - name: Pubblica DumpSQL win-arm64
+        run: |
+          dotnet publish src/DumpSQL/DumpSQL.csproj `
+            -c ${{ env.BUILD_CONFIG }} -r win-arm64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:AssemblyVersion=${{ env.VERSION }} `
+            -p:FileVersion=${{ env.VERSION }} `
+            -o publish/dumpsql
+
+      - name: Pubblica RestoreSQL win-arm64
+        run: |
+          dotnet publish src/RestoreSQL/RestoreSQL.csproj `
+            -c ${{ env.BUILD_CONFIG }} -r win-arm64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:AssemblyVersion=${{ env.VERSION }} `
+            -p:FileVersion=${{ env.VERSION }} `
+            -o publish/restoresql
+
+      - name: Crea zip win-arm64
+        shell: pwsh
+        run: |
+          $v = "${{ env.VERSION }}"
+          $rel = "release/win-arm64"
+          New-Item -ItemType Directory -Force "$rel/DumpSQL"    | Out-Null
+          New-Item -ItemType Directory -Force "$rel/RestoreSQL" | Out-Null
+
+          Copy-Item -Recurse "publish/dumpsql/*"    "$rel/DumpSQL/"
+          Copy-Item -Recurse "publish/restoresql/*" "$rel/RestoreSQL/"
+
+          Copy-Item "src/DumpSQL/appsettings.json"          "$rel/DumpSQL/"
+          Copy-Item "src/DumpSQL/appsettings-mysql.json"    "$rel/DumpSQL/"
+          Copy-Item "src/DumpSQL/appsettings-biemmedb.json" "$rel/DumpSQL/"
+          Copy-Item "src/RestoreSQL/appsettings.json"       "$rel/RestoreSQL/"
+          Copy-Item "src/RestoreSQL/appsettings-mysql.json" "$rel/RestoreSQL/"
+
+          Get-ChildItem "$rel" -Recurse -Filter "*.pdb" | Remove-Item -Force
+
+          Compress-Archive -Path "$rel" -DestinationPath "DumpSQL-Suite-$v-win-arm64.zip"
+          Write-Host "Creato: DumpSQL-Suite-$v-win-arm64.zip"
+
+      - name: Upload artefatto win-arm64
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-arm64
+          path: DumpSQL-Suite-${{ env.VERSION }}-win-arm64.zip
+          retention-days: 1
+
+  # ── Job 4: build macOS x64 ──────────────────────────────────────────────────
+  build-macos:
+    needs: version
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Pubblica DumpSQL osx-x64
         run: |
           dotnet publish src/DumpSQL/DumpSQL.csproj \
-            -c ${{ env.BUILD_CONFIG }} -r linux-x64 \
+            -c ${{ env.BUILD_CONFIG }} -r osx-x64 \
             --self-contained true \
             -p:PublishSingleFile=true \
             -p:AssemblyVersion=${{ env.VERSION }} \
             -p:FileVersion=${{ env.VERSION }} \
             -o publish/dumpsql
 
-      - name: Pubblica RestoreSQL linux-x64
+      - name: Pubblica RestoreSQL osx-x64
         run: |
           dotnet publish src/RestoreSQL/RestoreSQL.csproj \
-            -c ${{ env.BUILD_CONFIG }} -r linux-x64 \
+            -c ${{ env.BUILD_CONFIG }} -r osx-x64 \
             --self-contained true \
             -p:PublishSingleFile=true \
             -p:AssemblyVersion=${{ env.VERSION }} \
             -p:FileVersion=${{ env.VERSION }} \
             -o publish/restoresql
 
-      - name: Crea zip linux-x64
+      - name: Crea zip osx-x64
         run: |
           V="${{ env.VERSION }}"
-          REL="release/linux-x64"
+          REL="release/osx-x64"
           mkdir -p "$REL/DumpSQL" "$REL/RestoreSQL"
 
           # Tutto il publish output
@@ -151,19 +213,82 @@ jobs:
           chmod +x "$REL/DumpSQL/DumpSQL"
           chmod +x "$REL/RestoreSQL/RestoreSQL"
 
-          zip -r "DumpSQL-Suite-$V-linux-x64.zip" "$REL"
-          echo "Creato: DumpSQL-Suite-$V-linux-x64.zip"
+          zip -r "DumpSQL-Suite-$V-osx-x64.zip" "$REL"
+          echo "Creato: DumpSQL-Suite-$V-osx-x64.zip"
 
-      - name: Upload artefatto linux-x64
+      - name: Upload artefatto osx-x64
         uses: actions/upload-artifact@v4
         with:
-          name: linux-x64
-          path: DumpSQL-Suite-${{ env.VERSION }}-linux-x64.zip
+          name: osx-x64
+          path: DumpSQL-Suite-${{ env.VERSION }}-osx-x64.zip
           retention-days: 1
 
-  # ── Job 4: crea la GitHub Release con entrambi gli zip ───────────────────────
+  # ── Job 5: build macOS ARM64 (Apple Silicon) ─────────────────────────────────
+  build-macos-arm64:
+    needs: version
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Pubblica DumpSQL osx-arm64
+        run: |
+          dotnet publish src/DumpSQL/DumpSQL.csproj \
+            -c ${{ env.BUILD_CONFIG }} -r osx-arm64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:AssemblyVersion=${{ env.VERSION }} \
+            -p:FileVersion=${{ env.VERSION }} \
+            -o publish/dumpsql
+
+      - name: Pubblica RestoreSQL osx-arm64
+        run: |
+          dotnet publish src/RestoreSQL/RestoreSQL.csproj \
+            -c ${{ env.BUILD_CONFIG }} -r osx-arm64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:AssemblyVersion=${{ env.VERSION }} \
+            -p:FileVersion=${{ env.VERSION }} \
+            -o publish/restoresql
+
+      - name: Crea zip osx-arm64
+        run: |
+          V="${{ env.VERSION }}"
+          REL="release/osx-arm64"
+          mkdir -p "$REL/DumpSQL" "$REL/RestoreSQL"
+
+          cp -r publish/dumpsql/*    "$REL/DumpSQL/"
+          cp -r publish/restoresql/* "$REL/RestoreSQL/"
+
+          cp src/DumpSQL/appsettings.json          "$REL/DumpSQL/"
+          cp src/DumpSQL/appsettings-mysql.json    "$REL/DumpSQL/"
+          cp src/DumpSQL/appsettings-biemmedb.json "$REL/DumpSQL/"
+          cp src/RestoreSQL/appsettings.json       "$REL/RestoreSQL/"
+          cp src/RestoreSQL/appsettings-mysql.json "$REL/RestoreSQL/"
+
+          find "$REL" -name "*.pdb" -delete
+
+          chmod +x "$REL/DumpSQL/DumpSQL"
+          chmod +x "$REL/RestoreSQL/RestoreSQL"
+
+          zip -r "DumpSQL-Suite-$V-osx-arm64.zip" "$REL"
+          echo "Creato: DumpSQL-Suite-$V-osx-arm64.zip"
+
+      - name: Upload artefatto osx-arm64
+        uses: actions/upload-artifact@v4
+        with:
+          name: osx-arm64
+          path: DumpSQL-Suite-${{ env.VERSION }}-osx-arm64.zip
+          retention-days: 1
+
+  # ── Job 6: crea la GitHub Release con tutti gli zip ──────────────────────────
   release:
-    needs: [ version, build-windows, build-linux ]
+    needs: [ version, build-windows, build-windows-arm64, build-macos, build-macos-arm64 ]
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.version.outputs.version }}
@@ -187,8 +312,10 @@ jobs:
             ### Download
             | Pacchetto | Piattaforma |
             |-----------|-------------|
-            | `DumpSQL-Suite-${{ env.VERSION }}-win-x64.zip` | Windows 64-bit |
-            | `DumpSQL-Suite-${{ env.VERSION }}-linux-x64.zip` | Linux 64-bit |
+            | `DumpSQL-Suite-${{ env.VERSION }}-win-x64.zip`   | Windows 64-bit (Intel/AMD) |
+            | `DumpSQL-Suite-${{ env.VERSION }}-win-arm64.zip` | Windows ARM64 |
+            | `DumpSQL-Suite-${{ env.VERSION }}-osx-x64.zip`   | macOS 64-bit (Intel) |
+            | `DumpSQL-Suite-${{ env.VERSION }}-osx-arm64.zip` | macOS ARM64 (Apple Silicon) |
 
             ### Contenuto di ogni pacchetto
             ```
@@ -210,4 +337,6 @@ jobs:
           prerelease: false
           files: |
             artifacts/win-x64/DumpSQL-Suite-${{ env.VERSION }}-win-x64.zip
-            artifacts/linux-x64/DumpSQL-Suite-${{ env.VERSION }}-linux-x64.zip
+            artifacts/win-arm64/DumpSQL-Suite-${{ env.VERSION }}-win-arm64.zip
+            artifacts/osx-x64/DumpSQL-Suite-${{ env.VERSION }}-osx-x64.zip
+            artifacts/osx-arm64/DumpSQL-Suite-${{ env.VERSION }}-osx-arm64.zip

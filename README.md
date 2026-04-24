@@ -27,9 +27,31 @@ La clausola `ON` del MERGE (o la chiave dell'upsert MySQL) viene costruita a par
 
 ---
 
+## Download
+
+I binari precompilati sono disponibili nella pagina [**Releases**](../../releases/latest) per tutte le piattaforme supportate:
+
+| Pacchetto | Piattaforma |
+|-----------|-------------|
+| `DumpSQL-Suite-*-win-x64.zip`   | Windows 64-bit (Intel / AMD) |
+| `DumpSQL-Suite-*-win-arm64.zip` | Windows ARM64 |
+| `DumpSQL-Suite-*-osx-x64.zip`   | macOS Intel |
+| `DumpSQL-Suite-*-osx-arm64.zip` | macOS Apple Silicon (M-series) |
+
+Ogni pacchetto è **self-contained**: non richiede .NET installato sulla macchina.  
+Estrarre lo zip, editare `appsettings.json` con la propria stringa di connessione ed eseguire il binario.
+
+---
+
 ## Requisiti
 
+**Per usare i binari precompilati:**
+- Nessuna dipendenza — i pacchetti sono self-contained
+
+**Per compilare dal sorgente:**
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+
+**In entrambi i casi:**
 - Accesso a un server MSSQL (SQL Server) o MySQL
 
 ---
