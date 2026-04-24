@@ -5,12 +5,19 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyVersion>2026.4.22.1555</AssemblyVersion>
-    <FileVersion>2026.4.22.1555</FileVersion>
+    <AssemblyVersion>2026.4.24.1236</AssemblyVersion>
+    <FileVersion>2026.4.24.1236</FileVersion>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="appsettings-biemmedb.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="appsettings-biemmedb.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
